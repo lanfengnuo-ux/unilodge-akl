@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniLodge Auckland — 空房日报</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #fafaf9;
+        --card-bg: #fff;
+        --text: #1a1a1a;
+        --text-muted: #6b7280;
+        --border: #e5e4e1;
+        --green: #059669; --green-bg: #ecfdf5;
+        --amber: #d97706; --amber-bg: #fffbeb;
+        --red: #dc2626; --red-bg: #fef2f2;
+        --radius: 10px;
+        --font: 'Satoshi', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #0c0c0c;
+            --card-bg: #161616;
+            --text: #e5e5e5;
+            --text-muted: #8b8b8b;
+            --border: #262626;
+        }
+        .cat-divider td { background: #1a1a1a !important; }
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-family: var(--font); -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); }
+    body { max-width: 1050px; margin: 0 auto; padding: 32px 20px 60px; line-height: 1.6; }
+
+    .header { margin-bottom: 24px; }
+    .header-top { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .header h1 { font-size: clamp(1.2rem, 3vw, 1.5rem); font-weight: 700; letter-spacing: -0.025em; display: flex; align-items: center; gap: 8px; }
+    .header h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: #00529B; flex-shrink: 0; }
+    .header .meta { color: var(--text-muted); font-size: 0.8rem; line-height: 1.7; }
+
+    .prop-nav { display: flex; gap: 6px; margin-bottom: 22px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .prop-nav::-webkit-scrollbar { display: none; }
+    .prop-btn { flex-shrink: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 0.84rem; font-weight: 600; color: var(--text-muted); border: 1px solid var(--border); background: var(--card-bg); font-family: var(--font); transition: all 200ms cubic-bezier(0.32,0.72,0,1); white-space: nowrap; letter-spacing: -0.01em; }
+    .prop-btn:hover { color: var(--text); border-color: var(--text-muted); }
+    .prop-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .prop-btn .count { font-size: 0.68rem; opacity: 0.5; margin-left: 3px; font-weight: 400; }
+
+    .sub-tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; width: fit-content; }
+    .sub-tab { padding: 7px 16px; border-radius: 7px; cursor: pointer; font-size: 0.83rem; font-weight: 500; color: var(--text-muted); border: none; background: none; font-family: var(--font); transition: all 200ms cubic-bezier(0.32,0.72,0,1); white-space: nowrap; }
+    .sub-tab:hover { color: var(--text); }
+    .sub-tab.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .sub-tab .count { font-size: 0.66rem; opacity: 0.45; margin-left: 4px; font-weight: 400; }
+
+    .table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .table-wrap th { text-align: left; padding: 12px 16px; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .table-wrap td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .table-wrap tr:last-child td { border-bottom: none; }
+    .table-wrap tbody tr { transition: background 200ms cubic-bezier(0.32,0.72,0,1); }
+    .table-wrap tbody tr:hover { background: var(--bg); }
+
+    .cat-divider td { padding: 8px 16px !important; background: var(--bg); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+
+    .row-ok  { box-shadow: inset 3px 0 0 var(--green); }
+    .row-warn { box-shadow: inset 3px 0 0 var(--amber); }
+
+    .tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+    .tag::before { content: ''; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .tag-ok   { background: var(--green-bg); color: var(--green); }
+    .tag-ok::before   { background: var(--green); }
+    .tag-warn { background: var(--amber-bg); color: var(--amber); }
+    .tag-warn::before { background: var(--amber); }
+
+    .price { font-weight: 600; }
+    .room-name { font-weight: 600; }
+    .count-num { font-weight: 700; font-size: 0.9rem; color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .prop-panel { display: none; }
+    .prop-panel.active { display: block; }
+    .sub-panel { display: none; }
+    .sub-panel.active { display: block; }
+
+    .panel-summary { margin-top: 12px; font-size: 0.8rem; color: var(--text-muted); }
+    .stat-ok { color: var(--green); font-weight: 600; }
+    .stat-warn { color: var(--amber); font-weight: 600; }
+
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; }
+    .footer-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+    .footer-card h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
+    .footer-card p, .footer-card li { font-size: 0.82rem; line-height: 1.7; }
+    .footer-card ul { list-style: none; padding: 0; }
+    .footer-card li::before { content: "— "; color: var(--text-muted); }
+
+    .fade-in { opacity: 0; transform: translateY(8px); animation: fadeIn 500ms cubic-bezier(0.32,0.72,0,1) forwards; }
+    @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+        body { padding: 20px 12px 50px; }
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-wrap table { min-width: 620px; }
+        .header-top { flex-direction: column; }
+        .prop-nav, .sub-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; width: 100%; }
+        .prop-nav::-webkit-scrollbar, .sub-tabs::-webkit-scrollbar { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="header fade-in" style="animation-delay:0ms">
+    <div class="header-top">
+        <h1><span class="dot"></span>UniLodge Auckland 空房日报</h1>
+    </div>
+    <p class="meta">📍 Auckland, North Island, New Zealand — 4 所公寓 &ensp;|&ensp; 更新于 2026年06月25日 19:37 &ensp;|&ensp; 🎯 起租: 2026-07-15 &ensp;|&ensp; 周一至周五 10:00 / 15:00 自动刷新</p>
+</div>
+
+<nav class="prop-nav fade-in" style="animation-delay:60ms" id="prop-nav"><button class="prop-btn active" data-slug="mayoral-drive" onclick="switchProp('mayoral-drive')">Mayoral Drive<span class="count">1</span></button>
+        <button class="prop-btn" data-slug="auckland-city" onclick="switchProp('auckland-city')">Auckland City<span class="count">1</span></button>
+        <button class="prop-btn" data-slug="wellesley" onclick="switchProp('wellesley')">Wellesley Apartments<span class="count">2</span></button>
+        <button class="prop-btn" data-slug="auckland-central" onclick="switchProp('auckland-central')">Auckland Central<span class="count">12</span></button>
+        </nav>
+
+
+    <div class="prop-panel active" id="prop-mayoral-drive">
+        <div class="sub-tabs"><button class="sub-tab active" data-contract="AUT 20-30 Weeks" data-prop="mayoral-drive" onclick="switchContract('mayoral-drive','AUT 20-30 Weeks')">AUT 20-30 Weeks<span class="count">1</span></button>
+            </div>
+        
+                <div class="sub-panel active" data-contract="AUT 20-30 Weeks" data-prop="mayoral-drive">
+                    <div class="table-wrap fade-in">
+                        <table>
+                            <thead><tr><th>房型</th><th>入住</th><th>周租金</th><th>总租金 (含GST)</th><th>合同期</th><th>库存</th><th>8月份</th><th>起租日期</th></tr></thead>
+                            <tbody><tr class="cat-divider"><td colspan="8"><span class="cat-label">Studio</span></td></tr><tr class="row-ok"><td><span class="room-name">Studio Single Apartment</span></td><td>1人</td><td><span class="price">$477</span></td><td><span class="price">$14,581.96</span></td><td>214天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-summary">📅 2026-07-01 → 2027-01-31 &ensp;|&ensp; 共 1 种房型 &ensp;|&ensp; <span class="stat-ok">可预订 1</span> &ensp;|&ensp; <span class="stat-warn">等位 False</span></div>
+                </div>
+    </div>
+    <div class="prop-panel" id="prop-auckland-city">
+        <div class="sub-tabs"><button class="sub-tab active" data-contract="Full Year 52+ Weeks" data-prop="auckland-city" onclick="switchContract('auckland-city','Full Year 52+ Weeks')">Full Year 52+ Weeks<span class="count">1</span></button>
+            <button class="sub-tab" data-contract="Semester Stay 20+ Weeks" data-prop="auckland-city" onclick="switchContract('auckland-city','Semester Stay 20+ Weeks')">Semester Stay 20+ Weeks<span class="count">1</span></button>
+            </div>
+        
+                <div class="sub-panel active" data-contract="Full Year 52+ Weeks" data-prop="auckland-city">
+                    <div class="table-wrap fade-in">
+                        <table>
+                            <thead><tr><th>房型</th><th>入住</th><th>周租金</th><th>总租金 (含GST)</th><th>合同期</th><th>库存</th><th>8月份</th><th>起租日期</th></tr></thead>
+                            <tbody><tr class="cat-divider"><td colspan="8"><span class="cat-label">Studio</span></td></tr><tr class="row-ok"><td><span class="room-name">Standard Studio</span></td><td>1人</td><td><span class="price">$439</span></td><td><span class="price">$22,889.15</span></td><td>365天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--text-muted)">否</span></td><td>2026-07-15</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-summary">📅 2026-07-15 → 2027-07-15 &ensp;|&ensp; 共 1 种房型 &ensp;|&ensp; <span class="stat-ok">可预订 1</span> &ensp;|&ensp; <span class="stat-warn">等位 False</span></div>
+                </div>
+                <div class="sub-panel" data-contract="Semester Stay 20+ Weeks" data-prop="auckland-city">
+                    <div class="table-wrap fade-in">
+                        <table>
+                            <thead><tr><th>房型</th><th>入住</th><th>周租金</th><th>总租金 (含GST)</th><th>合同期</th><th>库存</th><th>8月份</th><th>起租日期</th></tr></thead>
+                            <tbody><tr class="cat-divider"><td colspan="8"><span class="cat-label">Studio</span></td></tr><tr class="row-ok"><td><span class="room-name">Standard Studio</span></td><td>1人</td><td><span class="price">$490</span></td><td><span class="price">$14,000.00</span></td><td>200天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--text-muted)">否</span></td><td>2026-07-15</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-summary">📅 2026-07-15 → 2027-01-31 &ensp;|&ensp; 共 1 种房型 &ensp;|&ensp; <span class="stat-ok">可预订 1</span> &ensp;|&ensp; <span class="stat-warn">等位 False</span></div>
+                </div>
+    </div>
+    <div class="prop-panel" id="prop-wellesley">
+        <div class="sub-tabs"><button class="sub-tab active" data-contract="45-52 Week Stay" data-prop="wellesley" onclick="switchContract('wellesley','45-52 Week Stay')">45-52 Week Stay<span class="count">2</span></button>
+            </div>
+        
+                <div class="sub-panel active" data-contract="45-52 Week Stay" data-prop="wellesley">
+                    <div class="table-wrap fade-in">
+                        <table>
+                            <thead><tr><th>房型</th><th>入住</th><th>周租金</th><th>总租金 (含GST)</th><th>合同期</th><th>库存</th><th>8月份</th><th>起租日期</th></tr></thead>
+                            <tbody><tr class="cat-divider"><td colspan="8"><span class="cat-label">5 Bedroom Multi-Share</span></td></tr><tr class="row-ok"><td><span class="room-name">5 Bedroom Apartment Standard</span></td><td>1人</td><td><span class="price">$360</span></td><td><span class="price">$18,720.52</span></td><td>364天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-ok"><td><span class="room-name">5 Bedroom Apartment Large</span></td><td>1人</td><td><span class="price">$379</span></td><td><span class="price">$19,706.96</span></td><td>364天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-summary">📅 2026-07-01 → 2027-06-30 &ensp;|&ensp; 共 2 种房型 &ensp;|&ensp; <span class="stat-ok">可预订 2</span> &ensp;|&ensp; <span class="stat-warn">等位 False</span></div>
+                </div>
+    </div>
+    <div class="prop-panel" id="prop-auckland-central">
+        <div class="sub-tabs"><button class="sub-tab active" data-contract="Full Year - Semester 2" data-prop="auckland-central" onclick="switchContract('auckland-central','Full Year - Semester 2')">Full Year - Semester 2<span class="count">12</span></button>
+            <button class="sub-tab" data-contract="Semester Stay - Semester 2" data-prop="auckland-central" onclick="switchContract('auckland-central','Semester Stay - Semester 2')">Semester Stay - Semester 2<span class="count">12</span></button>
+            </div>
+        
+                <div class="sub-panel active" data-contract="Full Year - Semester 2" data-prop="auckland-central">
+                    <div class="table-wrap fade-in">
+                        <table>
+                            <thead><tr><th>房型</th><th>入住</th><th>周租金</th><th>总租金 (含GST)</th><th>合同期</th><th>库存</th><th>8月份</th><th>起租日期</th></tr></thead>
+                            <tbody><tr class="cat-divider"><td colspan="8"><span class="cat-label">Studio</span></td></tr><tr class="row-ok"><td><span class="room-name">Studio Premium</span></td><td>1人</td><td><span class="price">$465</span></td><td><span class="price">$24,180.52</span></td><td>364天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Studio Deluxe</span></td><td>1人</td><td><span class="price">$495</span></td><td><span class="price">$25,738.44</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Studio Premium Accessible</span></td><td>1人</td><td><span class="price">$510</span></td><td><span class="price">$26,521.04</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Heritage Studio Premium</span></td><td>1人</td><td><span class="price">$520</span></td><td><span class="price">$27,041.56</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Heritage Studio Double</span></td><td>1人</td><td><span class="price">$539</span></td><td><span class="price">$28,028.00</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Studio Deluxe Accessible</span></td><td>1人</td><td><span class="price">$540</span></td><td><span class="price">$28,078.96</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="cat-divider"><td colspan="8"><span class="cat-label">4 Bedroom Multi-Share</span></td></tr><tr class="row-warn"><td><span class="room-name">Deluxe 4 Bedroom Apartment</span></td><td>1人</td><td><span class="price">$440</span></td><td><span class="price">$22,881.04</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="cat-divider"><td colspan="8"><span class="cat-label">Other</span></td></tr><tr class="row-warn"><td><span class="room-name">Four Bedroom apartment</span></td><td>1人</td><td><span class="price">$410</span></td><td><span class="price">$21,319.48</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-ok"><td><span class="room-name">Premium Ensuite</span></td><td>1人</td><td><span class="price">$435</span></td><td><span class="price">$22,618.96</span></td><td>364天</td><td><span class="count-num">2</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Double Premium (Access)</span></td><td>1人</td><td><span class="price">$539</span></td><td><span class="price">$28,028.00</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Double Premium</span></td><td>1人</td><td><span class="price">$539</span></td><td><span class="price">$28,028.00</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Double Deluxe (Accessible)</span></td><td>1人</td><td><span class="price">$569</span></td><td><span class="price">$29,589.56</span></td><td>364天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-summary">📅 2026-07-01 → 2027-06-30 &ensp;|&ensp; 共 12 种房型 &ensp;|&ensp; <span class="stat-ok">可预订 2</span> &ensp;|&ensp; <span class="stat-warn">等位 True</span></div>
+                </div>
+                <div class="sub-panel" data-contract="Semester Stay - Semester 2" data-prop="auckland-central">
+                    <div class="table-wrap fade-in">
+                        <table>
+                            <thead><tr><th>房型</th><th>入住</th><th>周租金</th><th>总租金 (含GST)</th><th>合同期</th><th>库存</th><th>8月份</th><th>起租日期</th></tr></thead>
+                            <tbody><tr class="cat-divider"><td colspan="8"><span class="cat-label">Studio</span></td></tr><tr class="row-ok"><td><span class="room-name">Studio Premium</span></td><td>1人</td><td><span class="price">$539</span></td><td><span class="price">$16,478.00</span></td><td>214天</td><td><span class="count-num">10+</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Heritage Studio Premium</span></td><td>1人</td><td><span class="price">$550</span></td><td><span class="price">$16,813.98</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Studio Deluxe</span></td><td>1人</td><td><span class="price">$569</span></td><td><span class="price">$17,396.06</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Studio Premium Accessible</span></td><td>1人</td><td><span class="price">$594</span></td><td><span class="price">$18,160.04</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Heritage Studio Double</span></td><td>1人</td><td><span class="price">$618</span></td><td><span class="price">$18,894.06</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Studio Deluxe Accessible</span></td><td>1人</td><td><span class="price">$635</span></td><td><span class="price">$19,411.94</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="cat-divider"><td colspan="8"><span class="cat-label">4 Bedroom Multi-Share</span></td></tr><tr class="row-warn"><td><span class="room-name">Deluxe 4 Bedroom Apartment</span></td><td>1人</td><td><span class="price">$514</span></td><td><span class="price">$15,714.02</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="cat-divider"><td colspan="8"><span class="cat-label">Other</span></td></tr><tr class="row-warn"><td><span class="room-name">Four Bedroom apartment</span></td><td>1人</td><td><span class="price">$484</span></td><td><span class="price">$14,795.96</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-ok"><td><span class="room-name">Premium Ensuite</span></td><td>1人</td><td><span class="price">$506</span></td><td><span class="price">$15,470.06</span></td><td>214天</td><td><span class="count-num">2</span> <span class="tag tag-ok">有房</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Double Premium (Access)</span></td><td>1人</td><td><span class="price">$605</span></td><td><span class="price">$18,496.02</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Double Premium</span></td><td>1人</td><td><span class="price">$605</span></td><td><span class="price">$18,496.02</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr><tr class="row-warn"><td><span class="room-name">Double Deluxe (Accessible)</span></td><td>1人</td><td><span class="price">$645</span></td><td><span class="price">$19,717.96</span></td><td>214天</td><td><span class="tag tag-warn">等位</span></td><td><span style="color:var(--green);font-weight:600">是</span></td><td>2026-07-01</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="panel-summary">📅 2026-07-01 → 2027-01-31 &ensp;|&ensp; 共 12 种房型 &ensp;|&ensp; <span class="stat-ok">可预订 2</span> &ensp;|&ensp; <span class="stat-warn">等位 True</span></div>
+                </div>
+    </div>
+
+<div class="footer fade-in" style="animation-delay:300ms">
+    <div class="footer-grid">
+        <div class="footer-card">
+            <h3>房源概况</h3>
+            <ul>
+                <li>4 所 UniLodge Auckland 公寓</li>
+                <li>共 16 种房型 (首个合同)</li>
+                <li>可预订 6 · 等位 10</li>
+                <li>起租日期统一为 2026-07-15</li>
+            </ul>
+        </div>
+        <div class="footer-card">
+            <h3>注意事项</h3>
+            <ul>
+                <li>价格均为新西兰元 (NZD)，已含 GST</li>
+                <li>候补（等位）= 当前无房，可排队等待</li>
+                <li>不同合同期对应不同价格</li>
+                <li>周租金为总价÷合同天数×7估算</li>
+            </ul>
+        </div>
+        <div class="footer-card">
+            <h3>数据来源</h3>
+            <ul>
+                <li>UniLodge 官方预订系统</li>
+                <li>reserve.unilodge.com.au</li>
+                <li>macOS launchd 周一至周五自动抓取</li>
+                <li>生成时间: 2026-06-25 19:37</li>
+            </ul>
+        </div>
+    </div>
+    <p style="color:var(--text-muted);font-size:0.74rem;margin-top:20px;text-align:center">UniLodge Auckland · North Island · 仅供内部参考 · 2026年06月25日 19:37</p>
+</div>
+
+<script>
+function switchProp(slug) {
+    document.querySelectorAll('.prop-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.prop-panel').forEach(p => p.classList.remove('active'));
+    var btn = document.querySelector('.prop-btn[data-slug="' + slug + '"]');
+    if (btn) btn.classList.add('active');
+    var panel = document.getElementById('prop-' + slug);
+    if (panel) {
+        panel.classList.add('active');
+        var firstSub = panel.querySelector('.sub-tab');
+        if (firstSub) firstSub.click();
+    }
+}
+
+function switchContract(propSlug, contractName) {
+    var panel = document.getElementById('prop-' + propSlug);
+    if (!panel) return;
+    panel.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+    panel.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
+    var subBtn = panel.querySelector('.sub-tab[data-contract="' + contractName + '"]');
+    if (subBtn) subBtn.classList.add('active');
+    var subPanel = panel.querySelector('.sub-panel[data-contract="' + contractName + '"]');
+    if (subPanel) subPanel.classList.add('active');
+}
+</script>
+
+</body>
+</html>
