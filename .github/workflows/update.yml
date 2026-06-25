@@ -1,0 +1,42 @@
+name: Update Room Report
+
+on:
+  schedule:
+    - cron: '3 0 * * 1-5'   # 10:03 AM AEST Mon-Fri
+    - cron: '7 5 * * 1-5'   # 15:07 PM AEST Mon-Fri
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run scraper
+        run: python3 scraper.py
+      - name: Commit and push
+        run: |
+          git config user.name "UniLodge Bot"
+          git config user.email "bot@unilodge-report.local"
+          git add index.html
+          git diff --staged --quiet || (git commit -m "Auto update $(date -u +'%Y-%m-%d %H:%M UTC')" && git push)
+
+  deploy:
+    needs: update
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - uses: actions/deploy-pages@v4
+        id: deployment
